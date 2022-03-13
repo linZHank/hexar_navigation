@@ -5,7 +5,7 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 
 
-class OdomPublish(Node):
+class HexaRobot(Node):
 
     def __init__(self):
         super().__init__('odom_publisher')
@@ -24,12 +24,12 @@ class OdomPublish(Node):
         if self.ser.in_waiting > 0:
             self.bytes = self.ser.readline()
             spd_str = self.bytes.decode('utf-8').rstrip() 
-
-            # split the string into a list ("," is where it splits)
-            # leftCPS, rightCPS, linear_l, linear_r, linear, angular
-            spd_list = spd_str.split(",")
-            lin_ = float(spd_list[0])
-            ang = float(spd_list[1])
+            spd_list = spd_str.split(",")  # wheel speeds, rad/s
+            whl_spd_l = float(spd_list[0])  
+            whl_spd_r = float(spd_list[1])
+        # get wheel directions
+        dir_l = self.get_parameter('/hexar/lwhl_dir').get_parameter_value().integer_value
+        dir_r = self.get_parameter('/hexar/rwhl_dir').get_parameter_value().integer_value
             
         msg = Odometry()
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -47,14 +47,14 @@ class OdomPublish(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    minimal_publisher = MinimalPublisher()
+    hexar = HexaRobot()
 
-    rclpy.spin(minimal_publisher)
+    rclpy.spin(hexar)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    minimal_publisher.destroy_node()
+    hexar.destroy_node()
     rclpy.shutdown()
 
 
