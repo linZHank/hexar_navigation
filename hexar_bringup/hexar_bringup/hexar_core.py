@@ -5,8 +5,7 @@ from rclpy.node import Node
 
 from geometry_msgs.msg import Twist
 
-WHEEL_RADIUS = 0.08
-WHEEL_SEPARATION = 0.19
+
 class HexaRobotCore(Node):
 
     def __init__(self):
@@ -35,19 +34,25 @@ class HexaRobotCore(Node):
             10
         )
         self.cmdv_sub  # prevent unused variable warning
-        # params
-        self.dir_l = 0
-        self.dir_r = 0
+        # constants
+        self.WHEEL_RADIUS = 0.08
+        self.WHEEL_SEPARATION = 0.19
+        # variables
+        self.lwhl_dir = 0
+        self.rwhl_dir = 0
         self.lin_x = 0.
         self.ang_z = 0.
-        self.k_p = 0.0003
-        # self.i = 0
+        self.lwhl_vel = 0.
+        self.rwhl_vel = 0.
+        self.k_p = 0.003
+        self.dutycycle_left = 0.
+        self.dutycycle_right = 0.
 
     def cmdv_sub_cb(self, msg):
         targ_lin_x = msg.linear.x
         targ_ang_z = msg.angular.z
-        targ_lwhl_vel = (targ_lin_x - (targ_ang_z * WHEEL_SEPARATION) * .5)
-        targ_rwhl_vel = (targ_lin_x + (targ_ang_z * WHEEL_SEPARATION) * .5)
+        targ_lwhl_vel = (targ_lin_x - (targ_ang_z *self.WHEEL_SEPARATION) * .5)
+        targ_rwhl_vel = (targ_lin_x + (targ_ang_z *self.WHEEL_SEPARATION) * .5)
         # set wheel directions based on target wheel velocity
         if targ_lwhl_vel > 0:
             self.lwhl_dir = 1
@@ -66,14 +71,14 @@ class HexaRobotCore(Node):
         ldcinc = self.k_p * lerr  # duty cycle increment
         self.dutycycle_left += ldcinc
         if self.dutycycle_left >= 1.:
-            self.dutycycle_left = 1
+            self.dutycycle_left = 1.
         elif self.dutycycle_left <= 0.:
             self.dutycycle_left = 0
         rerr = abs(targ_rwhl_vel) - abs(self.rwhl_vel)
         rdcinc = self.k_p * rerr
         self.dutycycle_right += rdcinc
         if self.dutycycle_right >= 1.:
-            self.dutycycle_right = 1
+            self.dutycycle_right = 1.
         elif self.dutycycle_right <= 0.:
             self.dutycycle_right = 0
         # drive motors
@@ -86,6 +91,7 @@ class HexaRobotCore(Node):
         elif self.lwhl_dir < 0: 
             self.right_motor.backward(self.dutycycle_right)
 
+        self.get_logger().info('Target Velocity: "%s"' % msg)
 
     def vel_pub_cb(self):
         if self.ser.in_waiting > 0:
@@ -95,16 +101,18 @@ class HexaRobotCore(Node):
             lwhl_spd = float(spd_list[0])  
             rwhl_spd = float(spd_list[1])
         # compute wheel linear velocity
-        self.lwhl_vel = self.dir_l * whl_spd
-        self.rwhl_vel = self.dir_r * rwhl_spd
+        self.lwhl_vel = self.lwhl_dir * lwhl_spd
+        self.rwhl_vel = self.rwhl_dir * rwhl_spd
+        lwhl_vel_lin = self.lwhl_vel * self.WHEEL_RADIUS
+        rwhl_vel_lin = self.rwhl_vel * self.WHEEL_RADIUS
         # 
         msg = Twist()
-        self.lin_x = (wvel_l + wvel_r) * .5
-        self.ang_z = (wvel_r - wvel_l) / WHEEL_SEPARATION
+        self.lin_x = (lwhl_vel_lin + rwhl_vel_lin) * .5
+        self.ang_z = (rwhl_vel_lin - lwhl_vel_lin) / self.WHEEL_SEPARATION
         msg.linear.x = self.lin_x
         msg.angular.z = self.ang_z
         self.vel_pub.publish(msg)
-        self.get_logger().debug('Publishing: "%s"' % msg.data)
+        self.get_logger().debug('Actual Velocity: "%s"' % msg)
 
 
 def main(args=None):
