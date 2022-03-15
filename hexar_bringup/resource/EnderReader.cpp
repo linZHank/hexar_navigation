@@ -33,8 +33,8 @@ const byte leftVcc = A5;  // A5 serves as Vcc for left encoder
 const byte rightVcc = A6;  // A6 serves as Vcc for right encoder
 
 // Define constans for robot
-const byte COUNTS_PER_REV = 64;
-const float GEAR_RATIO = 70;
+const byte COUNTS_PER_REV = 48;
+const float GEAR_RATIO = 46.85;
 //const float WHEEL_RADIUS = 0.04215; // m
 //const float WHEEL_SEPARATION = 0.3885; // m
 
