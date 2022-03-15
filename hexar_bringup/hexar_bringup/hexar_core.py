@@ -13,9 +13,6 @@ class HexaRobotCore(Node):
         # setup serial comm
         self.ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
         self.ser.reset_input_buffer()
-        self.bytes = self.ser.readline()
-        while (b'\xfe' in self.bytes or b'\xff' in self.bytes):
-            continue
         # setup robot driver
         self.left_motor = Motor(20, 21)
         self.right_motor = Motor(6, 13)
@@ -24,8 +21,8 @@ class HexaRobotCore(Node):
         self.en_l.on()
         self.en_r.on()
         # setup velocity publisher
-        self.vel_pub = self.create_publisher(Twist, 'hexar/velocity', 10)
-        self.vel_pub_timer = self.create_timer(0.1, self.vel_pub_cb)
+        self.vel_pub = self.create_publisher(Twist, 'hexar/velocity', 1)
+        self.vel_pub_timer = self.create_timer(0.01, self.vel_pub_cb)
         # setup twist listener
         self.cmdv_sub = self.create_subscription(
             Twist, 
@@ -34,77 +31,53 @@ class HexaRobotCore(Node):
             10
         )
         self.cmdv_sub  # prevent unused variable warning
+        # setup pid controller
+        self.ctrl_timer = self.create_timer(0.02, self.ctrl_cb)
         # constants
         self.WHEEL_RADIUS = 0.08
         self.WHEEL_SEPARATION = 0.19
+        self.K_P = 0.01
         # variables
-        self.lwhl_dir = 0
-        self.rwhl_dir = 0
         self.lin_x = 0.
         self.ang_z = 0.
+        self.targ_lin_x = 0.
+        self.targ_ang_z = 0.
+        self.lwhl_dir = 0
+        self.rwhl_dir = 0
+        self.lwhl_spd = 0.
+        self.rwhl_spd = 0.
         self.lwhl_vel = 0.
         self.rwhl_vel = 0.
-        self.k_p = 0.003
+        self.targ_lwhl_vel = 0.
+        self.targ_rwhl_vel = 0.
         self.dutycycle_left = 0.
         self.dutycycle_right = 0.
 
     def cmdv_sub_cb(self, msg):
-        targ_lin_x = msg.linear.x
-        targ_ang_z = msg.angular.z
-        targ_lwhl_vel = (targ_lin_x - (targ_ang_z *self.WHEEL_SEPARATION) * .5)
-        targ_rwhl_vel = (targ_lin_x + (targ_ang_z *self.WHEEL_SEPARATION) * .5)
-        # set wheel directions based on target wheel velocity
-        if targ_lwhl_vel > 0:
-            self.lwhl_dir = 1
-        elif targ_lwhl_vel < 0:
-            self.lwhl_dir = -1
-        else:
-            self.lwhl_dir = 0
-        if targ_rwhl_vel > 0:
-            self.rwhl_dir = 1
-        elif targ_rwhl_vel < 0:
-            self.rwhl_dir = -1
-        else:
-            self.rwhl_dir = 0
-        # calculate duty cycle change
-        lerr = abs(targ_lwhl_vel) - abs(self.lwhl_vel)
-        ldcinc = self.k_p * lerr  # duty cycle increment
-        self.dutycycle_left += ldcinc
-        if self.dutycycle_left >= 1.:
-            self.dutycycle_left = 1.
-        elif self.dutycycle_left <= 0.:
-            self.dutycycle_left = 0
-        rerr = abs(targ_rwhl_vel) - abs(self.rwhl_vel)
-        rdcinc = self.k_p * rerr
-        self.dutycycle_right += rdcinc
-        if self.dutycycle_right >= 1.:
-            self.dutycycle_right = 1.
-        elif self.dutycycle_right <= 0.:
-            self.dutycycle_right = 0
-        # drive motors
-        if self.lwhl_dir > 0:
-            self.left_motor.forward(self.dutycycle_left)
-        elif self.lwhl_dir < 0: 
-            self.left_motor.backward(self.dutycycle_left)
-        if self.rwhl_dir > 0:
-            self.right_motor.forward(self.dutycycle_right)
-        elif self.lwhl_dir < 0: 
-            self.right_motor.backward(self.dutycycle_right)
-
-        self.get_logger().info('Target Velocity: "%s"' % msg)
+        self.targ_lin_x = msg.linear.x
+        self.targ_ang_z = msg.angular.z
+        # self.get_logger().info('Target Velocity: "%s"' % msg)
 
     def vel_pub_cb(self):
+        """
+        Callback function in vel_pub_timer
+        Publish robot's velocity every 0.01 seconds
+        """
         if self.ser.in_waiting > 0:
             self.bytes_ = self.ser.readline()
-            spd_str = self.bytes_.decode('utf-8').rstrip() 
-            spd_list = spd_str.split(",")  # wheel speeds, rad/s
-            lwhl_spd = float(spd_list[0])  
-            rwhl_spd = float(spd_list[1])
+            if not b'\xfe' in self.bytes_ and not b'\xff' in self.bytes_:
+                spd_str = self.bytes_.decode('utf-8').rstrip() 
+                spd_list = spd_str.split(",")  # wheel speeds, rad/s
+                if len(spd_list) == 2:
+                    self.lwhl_spd = float(spd_list[0])  
+                    self.rwhl_spd = float(spd_list[1])
+        # print(f"lwhl speed, rwhl speed: {self.lwhl_spd, self.rwhl_spd}")
         # compute wheel linear velocity
-        self.lwhl_vel = self.lwhl_dir * lwhl_spd
-        self.rwhl_vel = self.rwhl_dir * rwhl_spd
+        self.lwhl_vel = self.lwhl_dir * self.lwhl_spd
+        self.rwhl_vel = self.rwhl_dir * self.rwhl_spd
         lwhl_vel_lin = self.lwhl_vel * self.WHEEL_RADIUS
         rwhl_vel_lin = self.rwhl_vel * self.WHEEL_RADIUS
+        # print(f"lwhl linear, rwhl linear: {lwhl_vel_lin, rwhl_vel_lin}")
         # 
         msg = Twist()
         self.lin_x = (lwhl_vel_lin + rwhl_vel_lin) * .5
@@ -112,7 +85,58 @@ class HexaRobotCore(Node):
         msg.linear.x = self.lin_x
         msg.angular.z = self.ang_z
         self.vel_pub.publish(msg)
-        self.get_logger().debug('Actual Velocity: "%s"' % msg)
+        self.get_logger().info(f"Actual Velocity: {msg}")
+
+    def ctrl_cb(self):
+        self.targ_lwhl_vel = (self.targ_lin_x - (self.targ_ang_z *self.WHEEL_SEPARATION) * .5)
+        self.targ_rwhl_vel = (self.targ_lin_x + (self.targ_ang_z *self.WHEEL_SEPARATION) * .5)
+        # print(f"target wheel speed: {self.targ_lwhl_vel, self.targ_rwhl_vel}")
+        # set wheel directions based on target wheel velocity
+        if self.targ_lwhl_vel > 0:
+            self.lwhl_dir = 1
+        elif self.targ_lwhl_vel < 0:
+            self.lwhl_dir = -1
+        else:
+            self.lwhl_dir = 0
+        if self.targ_rwhl_vel > 0:
+            self.rwhl_dir = 1
+        elif self.targ_rwhl_vel < 0:
+            self.rwhl_dir = -1
+        else:
+            self.rwhl_dir = 0
+        # print(f"wheel direction: {self.lwhl_dir, self.rwhl_dir}")  # debug
+        # calculate duty cycle change
+        lerr = abs(self.targ_lwhl_vel) - abs(self.lwhl_vel)
+        ldcinc = self.K_P * lerr  # duty cycle increment
+        # print(f"left error, left dutycycle increment: {lerr, ldcinc}")
+        self.dutycycle_left += ldcinc
+        if self.dutycycle_left >= 1.:
+            self.dutycycle_left = 1.
+        elif self.dutycycle_left <= 0.:
+            self.dutycycle_left = 0
+        rerr = abs(self.targ_rwhl_vel) - abs(self.rwhl_vel)
+        rdcinc = self.K_P * rerr
+        self.dutycycle_right += rdcinc
+        if self.dutycycle_right >= 1.:
+            self.dutycycle_right = 1.
+        elif self.dutycycle_right <= 0.:
+            self.dutycycle_right = 0
+        print(f"left/right dutycycle: {self.dutycycle_left, self.dutycycle_right}")
+        # drive motors
+        if self.lwhl_dir > 0:
+            self.left_motor.forward(self.dutycycle_left)
+        elif self.lwhl_dir < 0:
+            self.left_motor.backward(self.dutycycle_left)
+        else:
+            self.left_motor.stop()
+        if self.rwhl_dir > 0:
+            self.right_motor.forward(self.dutycycle_right)
+        elif self.lwhl_dir < 0:
+            self.right_motor.backward(self.dutycycle_right)
+        else:
+            self.right_motor.stop()
+        # self.left_motor.forward(.35)  # for test only
+        # self.right_motor.forward(.35)
 
 
 def main(args=None):

@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'hexar_core = hexar_bringup.hexar_core:main'
+            'hexar_core = hexar_bringup.hexar_core:main',
         ],
     },
 )
