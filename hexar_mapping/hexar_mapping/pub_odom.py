@@ -48,7 +48,7 @@ class OdometryPublisher(Node):
         self.y += delta_y
         self.th += delta_th
         q = tf_transformations.quaternion_about_axis(self.th, (0, 0, 1))
-        print(delta_x)
+        # print(self.lin_x, self.ang_z)
         # prepare Odometry message
         msg = Odometry()
         msg.header.stamp = self.cur_time.to_msg()
@@ -63,7 +63,7 @@ class OdometryPublisher(Node):
         msg.twist.twist.linear.x = self.lin_x
         msg.twist.twist.angular.z = self.ang_z
         self.odom_pub.publish(msg)
-        self.get_logger().debug('Publishing: "%s"' % msg)
+        self.get_logger().debug(f'Publishing: {msg}')
         self.pre_time = self.cur_time
         # self.i += 1
 
