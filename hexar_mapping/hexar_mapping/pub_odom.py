@@ -3,7 +3,7 @@ import rclpy
 from rclpy.node import Node
 import tf_transformations
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Quaternion
 from nav_msgs.msg import Odometry
 
 
@@ -18,7 +18,7 @@ class OdometryPublisher(Node):
             self.vel_sub_cb, 
             1
         )
-        self.cmdv_sub  # prevent unused variable warning
+        self.vel_sub  # prevent unused variable warning
         # publisher
         self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
         self.odom_pub_timer = self.create_timer(0.2, self.odom_pub_timer_cb)
@@ -49,17 +49,20 @@ class OdometryPublisher(Node):
         q = tf_transformations.quaternion_about_axis(self.th, (0, 0, 1))
         # prepare Odometry message
         msg = Odometry()
-        msg.header.stamp = self.cur_time
+        msg.header.stamp = self.cur_time.to_msg()
         msg.header.frame_id = "odom"
         msg.child_frame_id = "base_link"
         msg.pose.pose.position.x = self.x
         msg.pose.pose.position.y = self.y
-        msg.pose.pose.position.z = self.z
-        msg.pose.pose.orientation = q
+        msg.pose.pose.orientation.x = q[0]
+        msg.pose.pose.orientation.y = q[1]
+        msg.pose.pose.orientation.z = q[2]
+        msg.pose.pose.orientation.w = q[3]
         msg.twist.twist.linear.x = self.lin_x
         msg.twist.twist.angular.z = self.ang_z
-        self.publisher_.publish(msg)
-        self.get_logger().info('Publishing: "%s"' % msg.data)
+        self.odom_pub.publish(msg)
+        self.get_logger().info('Publishing: "%s"' % msg)
+        self.pre_time = self.cur_time
         # self.i += 1
 
 
