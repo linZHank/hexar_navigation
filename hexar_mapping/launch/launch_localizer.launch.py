@@ -20,13 +20,13 @@ def generate_launch_description():
         package='hexar_bringup',
         executable='hexar_core',
         name='hexar_core'
-    ),
+    )
 
     odom_pub_node = Node(
         package='hexar_mapping',
         executable='pub_odom',
         name='odom_publisher',
-    ),
+    )
 
     robot_localization_node = Node(
         package="robot_localization",
