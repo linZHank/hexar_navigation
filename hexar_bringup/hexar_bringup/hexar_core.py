@@ -57,7 +57,7 @@ class HexaRobotCore(Node):
     def cmdv_sub_cb(self, msg):
         self.targ_lin_x = msg.linear.x
         self.targ_ang_z = msg.angular.z
-        self.get_logger().debug('Target Velocity: "%s"' % msg)
+        self.get_logger().info('Target Velocity: "%s"' % msg)
 
     def vel_pub_cb(self):
         """
