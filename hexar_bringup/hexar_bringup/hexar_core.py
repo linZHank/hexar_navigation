@@ -21,9 +21,6 @@ class HexaRobotCore(Node):
         self.en_r = LED(12)
         self.en_l.on()
         self.en_r.on()
-        # setup velocity publisher
-        self.vel_pub = self.create_publisher(Twist, 'hexar/velocity', 1)
-        self.vel_pub_timer = self.create_timer(0.01, self.vel_pub_cb)
         # setup twist listener
         self.cmdv_sub = self.create_subscription(
             Twist, 
@@ -32,6 +29,9 @@ class HexaRobotCore(Node):
             1
         )
         self.cmdv_sub  # prevent unused variable warning
+        # setup velocity publisher
+        self.vel_pub = self.create_publisher(Twist, '/hexar/velocity', 1)
+        self.vel_pub_timer = self.create_timer(0.01, self.vel_pub_cb)
         # setup pid controller
         self.ctrl_timer = self.create_timer(0.02, self.ctrl_cb)
         # constants
