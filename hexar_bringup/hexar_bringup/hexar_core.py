@@ -57,7 +57,7 @@ class HexaRobotCore(Node):
     def cmdv_sub_cb(self, msg):
         self.targ_lin_x = msg.linear.x
         self.targ_ang_z = msg.angular.z
-        self.get_logger().info('Target Velocity: "%s"' % msg)
+        self.get_logger().debug('Target Velocity: "%s"' % msg)
 
     def vel_pub_cb(self):
         """
@@ -85,15 +85,15 @@ class HexaRobotCore(Node):
         msg.linear.x = self.lin_x
         msg.angular.z = self.ang_z
         self.vel_pub.publish(msg)
-        # self.get_logger().info(f"Actual Velocity: {msg}")
+        self.get_logger().debug(f"Actual Velocity: {msg}")
 
     def ctrl_cb(self):
         targ_lwhl_vel_lin = (self.targ_lin_x - (self.targ_ang_z *self.WHEEL_SEPARATION) * .5)
         targ_rwhl_vel_lin = (self.targ_lin_x + (self.targ_ang_z *self.WHEEL_SEPARATION) * .5)
         self.targ_lwhl_vel = targ_lwhl_vel_lin / self.WHEEL_RADIUS
         self.targ_rwhl_vel = targ_rwhl_vel_lin / self.WHEEL_RADIUS
-        print(f"target wheel speed: {self.targ_lwhl_vel, self.targ_rwhl_vel}")
-        print(f"actual wheel speed: {self.lwhl_vel, self.rwhl_vel}")
+        # print(f"target wheel speed: {self.targ_lwhl_vel, self.targ_rwhl_vel}")
+        # print(f"actual wheel speed: {self.lwhl_vel, self.rwhl_vel}")
         # set wheel directions based on target wheel velocity
         if self.targ_lwhl_vel > 0:
             self.lwhl_dir = 1
@@ -123,8 +123,8 @@ class HexaRobotCore(Node):
             self.dutycycle_right = 1.
         elif self.dutycycle_right <= 0.:
             self.dutycycle_right = 0
-        print(f"left/right error: {lerr, rerr}")
-        print(f"left/right dutycycle: {self.dutycycle_left, self.dutycycle_right}")
+        # print(f"left/right error: {lerr, rerr}")
+        # print(f"left/right dutycycle: {self.dutycycle_left, self.dutycycle_right}")
         # drive motors
         if self.lwhl_dir > 0:
             self.left_motor.forward(self.dutycycle_left)
