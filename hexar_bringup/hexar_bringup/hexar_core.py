@@ -8,11 +8,10 @@ from geometry_msgs.msg import Twist
 
 
 class HexaRobotCore(Node):
-
     def __init__(self):
-        super().__init__('hexar_core')
+        super().__init__("hexar_core")
         # setup serial comm
-        self.ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+        self.ser = serial.Serial("/dev/ttyACM0", 9600, timeout=1)
         self.ser.reset_input_buffer()
         # setup robot driver
         self.left_motor = Motor(20, 21)
@@ -22,37 +21,32 @@ class HexaRobotCore(Node):
         self.en_l.on()
         self.en_r.on()
         # setup twist listener
-        self.cmdv_sub = self.create_subscription(
-            Twist, 
-            'cmd_vel', 
-            self.cmdv_sub_cb, 
-            1
-        )
+        self.cmdv_sub = self.create_subscription(Twist, "cmd_vel", self.cmdv_sub_cb, 1)
         self.cmdv_sub  # prevent unused variable warning
         # setup velocity publisher
-        self.vel_pub = self.create_publisher(Twist, '/hexar/velocity', 1)
+        self.vel_pub = self.create_publisher(Twist, "/hexar/velocity", 1)
         self.vel_pub_timer = self.create_timer(0.01, self.vel_pub_cb)
         # setup pid controller
         self.ctrl_timer = self.create_timer(0.02, self.ctrl_cb)
         # constants
         self.WHEEL_RADIUS = 0.04
         self.WHEEL_SEPARATION = 0.19
-        self.K_P = .001
+        self.K_P = 0.001
         # variables
-        self.lin_x = 0.
-        self.ang_z = 0.
-        self.targ_lin_x = 0.
-        self.targ_ang_z = 0.
+        self.lin_x = 0.0
+        self.ang_z = 0.0
+        self.targ_lin_x = 0.0
+        self.targ_ang_z = 0.0
         self.lwhl_dir = 0
         self.rwhl_dir = 0
-        self.lwhl_spd = 0.
-        self.rwhl_spd = 0.
-        self.lwhl_vel = 0.
-        self.rwhl_vel = 0.
-        self.targ_lwhl_vel = 0.
-        self.targ_rwhl_vel = 0.
-        self.dutycycle_left = 0.
-        self.dutycycle_right = 0.
+        self.lwhl_spd = 0.0
+        self.rwhl_spd = 0.0
+        self.lwhl_vel = 0.0
+        self.rwhl_vel = 0.0
+        self.targ_lwhl_vel = 0.0
+        self.targ_rwhl_vel = 0.0
+        self.dutycycle_left = 0.0
+        self.dutycycle_right = 0.0
 
     def cmdv_sub_cb(self, msg):
         self.targ_lin_x = msg.linear.x
@@ -66,11 +60,11 @@ class HexaRobotCore(Node):
         """
         if self.ser.in_waiting > 0:
             self.bytes_ = self.ser.readline()
-            if not b'\xfe' in self.bytes_ and not b'\xff' in self.bytes_:
-                spd_str = self.bytes_.decode('utf-8').rstrip() 
+            if b"\xfe" not in self.bytes_ and b"\xff" not in self.bytes_:
+                spd_str = self.bytes_.decode("utf-8").rstrip()
                 spd_list = spd_str.split(",")  # wheel speeds, rad/s
                 if len(spd_list) == 2:
-                    self.lwhl_spd = float(spd_list[0])  
+                    self.lwhl_spd = float(spd_list[0])
                     self.rwhl_spd = float(spd_list[1])
         # print(f"lwhl speed, rwhl speed: {self.lwhl_spd, self.rwhl_spd}")
         # compute wheel linear velocity
@@ -80,7 +74,7 @@ class HexaRobotCore(Node):
         rwhl_vel_lin = self.rwhl_vel * self.WHEEL_RADIUS
         # print(f"lwhl linear, rwhl linear: {lwhl_vel_lin, rwhl_vel_lin}")
         msg = Twist()
-        self.lin_x = (lwhl_vel_lin + rwhl_vel_lin) * .5
+        self.lin_x = (lwhl_vel_lin + rwhl_vel_lin) * 0.5
         self.ang_z = (rwhl_vel_lin - lwhl_vel_lin) / self.WHEEL_SEPARATION
         msg.linear.x = self.lin_x
         msg.angular.z = self.ang_z
@@ -88,8 +82,12 @@ class HexaRobotCore(Node):
         self.get_logger().debug(f"Actual Velocity: {msg}")
 
     def ctrl_cb(self):
-        targ_lwhl_vel_lin = (self.targ_lin_x - (self.targ_ang_z *self.WHEEL_SEPARATION) * .5)
-        targ_rwhl_vel_lin = (self.targ_lin_x + (self.targ_ang_z *self.WHEEL_SEPARATION) * .5)
+        targ_lwhl_vel_lin = (
+            self.targ_lin_x - (self.targ_ang_z * self.WHEEL_SEPARATION) * 0.5
+        )
+        targ_rwhl_vel_lin = (
+            self.targ_lin_x + (self.targ_ang_z * self.WHEEL_SEPARATION) * 0.5
+        )
         self.targ_lwhl_vel = targ_lwhl_vel_lin / self.WHEEL_RADIUS
         self.targ_rwhl_vel = targ_rwhl_vel_lin / self.WHEEL_RADIUS
         # print(f"target wheel speed: {self.targ_lwhl_vel, self.targ_rwhl_vel}")
@@ -112,16 +110,16 @@ class HexaRobotCore(Node):
         lerr = np.abs(self.targ_lwhl_vel) - np.abs(self.lwhl_vel)
         ldcinc = self.K_P * lerr  # duty cycle increment
         self.dutycycle_left += ldcinc
-        if self.dutycycle_left >= 1.:
-            self.dutycycle_left = 1.
-        elif self.dutycycle_left <= 0.:
+        if self.dutycycle_left >= 1.0:
+            self.dutycycle_left = 1.0
+        elif self.dutycycle_left <= 0.0:
             self.dutycycle_left = 0
         rerr = np.abs(self.targ_rwhl_vel) - np.abs(self.rwhl_vel)
         rdcinc = self.K_P * rerr
         self.dutycycle_right += rdcinc
-        if self.dutycycle_right >= 1.:
-            self.dutycycle_right = 1.
-        elif self.dutycycle_right <= 0.:
+        if self.dutycycle_right >= 1.0:
+            self.dutycycle_right = 1.0
+        elif self.dutycycle_right <= 0.0:
             self.dutycycle_right = 0
         # print(f"left/right error: {lerr, rerr}")
         # print(f"left/right dutycycle: {self.dutycycle_left, self.dutycycle_right}")
@@ -158,5 +156,5 @@ def main(args=None):
     rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
