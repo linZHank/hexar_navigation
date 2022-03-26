@@ -2,8 +2,9 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 import tf_transformations
+from tf2_ros import TransformBroadcaster
 
-from geometry_msgs.msg import Twist, Quaternion
+from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
 
 
@@ -11,11 +12,13 @@ class OdometryPublisher(Node):
 
     def __init__(self):
         super().__init__('odom_publisher')
+        # tf broadcaster
+        self.odom_broadcaster = TransformBroadcaster(self)
         # subscriber
         self.vel_sub = self.create_subscription(
-            Twist, 
-            '/hexar/velocity', 
-            self.vel_sub_cb, 
+            Twist,
+            '/hexar/velocity',
+            self.vel_sub_cb,
             1
         )
         self.vel_sub  # prevent unused variable warning
@@ -48,8 +51,20 @@ class OdometryPublisher(Node):
         self.y += delta_y
         self.th += delta_th
         q = tf_transformations.quaternion_about_axis(self.th, (0, 0, 1))
-        # print(self.lin_x, self.ang_z)
-        # prepare Odometry message
+        # prepare odom transform
+        trans = TransformStamped()
+        trans.header.stamp = self.cur_time.to_msg()
+        trans.header.frame_id = "odom"
+        trans.child_frame_id = "base_link"
+        trans.transform.translation.x = self.x
+        trans.transform.translation.y = self.y
+        trans.transform.translation.z = 0.0
+        trans.transform.rotation.x = q[0]
+        trans.transform.rotation.y = q[1]
+        trans.transform.rotation.z = q[2]
+        trans.transform.rotation.w = q[3]
+        self.odom_broadcaster.sendTransform(trans)
+        # prepare odom topic
         msg = Odometry()
         msg.header.stamp = self.cur_time.to_msg()
         msg.header.frame_id = "odom"
