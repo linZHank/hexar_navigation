@@ -63,7 +63,10 @@ def generate_launch_description():
     launch_rplidar = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             str(rplidar_package_path / "launch/rplidar_launch.py")
-        )
+        ),
+        launch_arguments={
+            "frame_id": "lidar_link"
+        }.items()
     )
 
     return LaunchDescription(
@@ -71,8 +74,8 @@ def generate_launch_description():
             model_arg,
             hexar_core_node,
             odom_pub_node,
-            robot_state_publisher_node,
             joint_state_publisher_node,
+            robot_state_publisher_node,
             robot_localization_node,
             launch_rplidar,
         ]
