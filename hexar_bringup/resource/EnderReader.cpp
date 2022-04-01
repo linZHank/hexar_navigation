@@ -29,8 +29,8 @@ const byte leftEncA = 2;  // D2 reads left encoder's Ch.A
 const byte leftEncB = 3;  // D3 reads left encoder's Ch.B
 const byte rightEncA = 8; // D8 reads right encoder's Ch.A
 const byte rightEncB = 9; // D9 reads right encoder's Ch.B
-const byte leftVcc = A5;  // A5 serves as Vcc for left encoder
-const byte rightVcc = A6;  // A6 serves as Vcc for right encoder
+const byte leftVcc = A6;  // A5 serves as Vcc for left encoder
+const byte rightVcc = A7;  // A6 serves as Vcc for right encoder
 
 // Define constans for robot
 const byte COUNTS_PER_REV = 48;
