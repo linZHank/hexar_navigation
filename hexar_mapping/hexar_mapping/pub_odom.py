@@ -17,14 +17,14 @@ class OdometryPublisher(Node):
         # subscriber
         self.vel_sub = self.create_subscription(
             Twist,
-            '/hexar/velocity',
+            '/cmd_vel',
             self.vel_sub_cb,
             1
         )
         self.vel_sub  # prevent unused variable warning
         # publisher
-        self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
-        self.odom_pub_timer = self.create_timer(0.2, self.odom_pub_timer_cb)
+        self.odom_pub = self.create_publisher(Odometry, '/odom', 1)
+        self.odom_pub_timer = self.create_timer(0.1, self.odom_pub_timer_cb)
         # variables
         self.x = 0.
         self.y = 0.
